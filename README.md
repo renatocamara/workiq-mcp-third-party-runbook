@@ -117,6 +117,26 @@ For production, the agent platform should implement **Authorization Code flow wi
 
 What does NOT change between test and production: Work IQ supports **delegated context only** (application-only / client-credentials auth is not supported), so a one-time interactive sign-in per user always exists regardless of flow, and every request is permission-trimmed to that user. The token produced by the device code flow is functionally identical to one produced by auth code flow, which is why the validation in this runbook carries over to a production implementation unchanged.
 
+## Path to production
+
+This runbook validates the **integration contract**: the endpoint, delegated auth, the tool surface, and the entitlement model. That contract does not change in production. What changes is everything around it. If you are taking this from validation to a production agent platform, plan for the following layers (auth is covered in the previous section):
+
+**MCP client hardening.** `workiq-mcp.sh` is a validation probe, not production code. A real agent platform should use its existing MCP client library and add what the probe deliberately omits: session re-establishment when `Mcp-Session-Id` expires, proper SSE stream handling, timeouts, retry with exponential backoff for throttling (429), and an error taxonomy that distinguishes policy-denied (403, do not retry), entitlement failures (billing problem, alert an admin), and transient errors (retry). Token handling moves from a cache file to a secrets vault, ideally via MSAL rather than raw OAuth.
+
+**Multi-user lifecycle.** In production every user authenticates individually. Tenant-wide admin consent (Runbook Step 2) already covers consent at scale, but design for token expiry and revocation mid-task: long-running agentic flows on delegated auth need a defined UX for "your session needs re-authentication", and Conditional Access / Continuous Access Evaluation can invalidate tokens at any moment. Keep a strict mapping between platform users and Entra identities; an agent that mixes tokens across users is a security incident.
+
+**Governance.** Apply Conditional Access policies to the app registration (MFA, device compliance), log every call for audit (who asked what, answered from which data), and treat the oversharing review as a blocking prerequisite rather than a recommendation: semantic search over M365 turns every excessive permission into a natural-language-accessible answer. Decide write actions formally; the read-only default is easy in a pilot, and the first request to enable writes deserves a real review.
+
+**Billing as an ongoing operation.** The small credit cap used during validation is a test guardrail. Production needs consumption forecasting (measure what a typical user session costs; nobody knows until it is measured), spending policies segmented by group, alerts before the cap (hitting the limit mid-month disables the agent for everyone until the next cycle), and a named owner for the consumption bill. Pay-as-you-go creates a FinOps conversation that per-user licensing never did.
+
+**Data freshness expectations.** As documented in [Troubleshooting #10](docs/03-troubleshooting.md#10-empty-results-that-look-like-failures-but-are-not), the Copilot semantic index behind `ask` lags raw entity access by hours for new content, while `fetch` is immediate. Productize that: either surface the freshness caveat to users, or combine `ask` (reasoning) with `fetch` (deterministic, fresh data) under the hood.
+
+**Preview volatility.** Validated against server v1.0.165.0; tool names, counts, and admin surfaces can change while Work IQ MCP is in preview. Track the changelog, pin expectations to observed behavior, and keep a direct Microsoft Graph fallback designed for business-critical paths.
+
+**Setup as code.** The one-time manual setup here (enablement script, `setup-workiq-app.sh`) should become IaC (Terraform/Bicep for the app registration and permission grants) and a formal change request for tenant enablement, executed by the organization's identity team rather than an individual admin.
+
+A useful way to frame this with stakeholders: this runbook proves what is settled; the list above is the engineering and governance work that remains, and none of it invalidates what was validated here.
+
 ## Status and disclaimers
 
 - Work IQ MCP is in **public preview**; behavior, tool names, and admin surfaces may change. Validated against `WorkIQ.MCP.Server` v1.0.165.0 (August 2026).
