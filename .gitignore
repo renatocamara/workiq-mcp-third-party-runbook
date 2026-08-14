@@ -1,0 +1,18 @@
+# Evidence logs from validation runs contain real mailbox/calendar data. Never commit.
+validation-evidence-*.log
+*.log
+
+# Token caches (workiq-mcp.sh stores its token in ~/.workiq_token, but be safe)
+.workiq_token
+*.token
+
+# Local environment files
+.env
+.env.*
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
