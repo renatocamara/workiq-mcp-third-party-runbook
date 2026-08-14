@@ -10,6 +10,12 @@ validation-evidence-*.log
 .env
 .env.*
 
+# Working documents (customer-facing docx/pptx/xlsx are internal; never publish)
+*.docx
+*.pptx
+*.xlsx
+~$*
+
 # Editor and OS noise
 .vscode/
 .idea/
