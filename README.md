@@ -1,5 +1,7 @@
 # Work IQ MCP: Third-Party Agent Integration Runbook
 
+> **Note:** This is a validation runbook, not a production implementation. See [Scope and limitations](#scope-and-limitations).
+
 **End-to-end validation runbook for integrating a third-party, Linux-hosted agent with Microsoft 365 organizational context through Work IQ MCP.**
 
 This repository documents a tested integration pattern for connecting a custom or third-party agent to the Work IQ MCP endpoint. The validation was performed from a Linux client (WSL Ubuntu) using `curl`, `jq`, and standard OAuth 2.0 flows. The scripts in this repository are intended to validate the protocol, authentication, tenant configuration, billing, and Microsoft 365 data-access path. They are not intended to serve as a production agent implementation.
