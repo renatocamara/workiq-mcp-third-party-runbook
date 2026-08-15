@@ -1,8 +1,8 @@
-# Validation evidence: real terminal outputs
+# Validation Evidence
 
-These are actual, lightly sanitized outputs captured during the validation (WSL Ubuntu, August 2026, `WorkIQ.MCP.Server` v1.0.165.0). Use them to compare against your own runs: your output should look like the "success" blocks, and if it looks like a "failure" block, the fix is referenced next to it.
+The following outputs were captured during the August 2026 validation from WSL Ubuntu, against `WorkIQ.MCP.Server` v1.0.165.0. Tenant IDs, subscription IDs, application IDs, user identities, and other environment-specific values have been sanitized (placeholders like `<tenant-id>`); everything else is verbatim.
 
-Sanitization: tenant/subscription/app IDs and user emails are replaced with placeholders like `<tenant-id>`. Everything else is verbatim.
+Use them to compare against your own runs: your output should look like the "success" blocks, and if it looks like a "failure" block, the fix is referenced next to it.
 
 ---
 
@@ -34,7 +34,7 @@ Sanitization: tenant/subscription/app IDs and user emails are replaced with plac
   ./workiq-mcp.sh tools
 ```
 
-Failure mode for comparison (missing Entra role; fix in [Troubleshooting #2](03-troubleshooting.md#2-insufficient-privileges-to-complete-the-operation-when-creating-service-principals-or-app-registrations)):
+Failure mode for comparison (missing Microsoft Entra role; fix in [Troubleshooting #2](03-troubleshooting.md#2-insufficient-privileges-to-complete-the-operation-when-creating-service-principals-or-app-registrations)):
 
 ```text
 [*] Provisioning Work IQ SP (one-time per tenant)...
@@ -67,13 +67,15 @@ fetch   Fetch one or more WorkIQ entities by path. Use entity paths discovered f
 update_entity   Update an existing WorkIQ entity by writing JSON to its path. Use get_schema first to disc
 ```
 
-This proves: delegated OAuth from a Linux shell, MCP Streamable HTTP handshake, session establishment, and tool discovery. Note the server reports 11 tools; official docs at the time listed 10 (`fetch_blob` is newer than the docs).
+This validates the following components of the tested integration path: delegated OAuth from a Linux shell, the MCP Streamable HTTP handshake, session establishment, and tool discovery.
+
+> During the August 2026 validation, the server returned 11 tools, including `fetch_blob`. The documented tool surface can evolve, so validation should verify successful tool discovery rather than rely on an exact tool count.
 
 ---
 
 ## 3. The entitlement gate (what failure looks like)
 
-`./workiq-mcp.sh fetch "/me/messages"` before billing is configured. **This exact output appeared identically in three different misconfigured tenants:**
+`./workiq-mcp.sh fetch "/me/messages"` before billing was configured. **This exact output appeared identically in three differently misconfigured tenants:**
 
 ```json
 {
@@ -92,15 +94,15 @@ This proves: delegated OAuth from a Linux shell, MCP Streamable HTTP handshake, 
 }
 ```
 
-Root causes we confirmed for this one error text, in different tenants: no M365 licensing at all, incomplete tenant enablement, and missing pay-as-you-go billing policy. Work the [decision tree](03-troubleshooting.md#quick-decision-tree-for-the-entitlement-error).
+Conditions observed with this error during validation included a tenant without the required Microsoft 365 workloads, incomplete tenant enablement, and missing Work IQ usage-based billing/access configuration. Because the same entitlement message can represent multiple configuration failures, use the [troubleshooting decision path](03-troubleshooting.md#quick-decision-tree-for-the-entitlement-error) to isolate the affected layer.
 
-Diagnostic commands and their outputs from the failing tenants:
+Diagnostic commands and their outputs from the validation tenants:
 
 ```text
 $ az rest --method get --url "https://graph.microsoft.com/v1.0/me/licenseDetails" | jq -r '.value[].skuPartNumber'
 AAD_PREMIUM_P2
 ```
-(Only Entra P2, no M365: wrong tenant. Compare with a healthy tenant:)
+(Only Microsoft Entra licensing, no Microsoft 365 workloads: this tenant is unsuitable for the validation scenario. Compare with the tenant used for the successful validation:)
 
 ```text
 $ az rest --method get --url "https://graph.microsoft.com/v1.0/me/licenseDetails" | jq -r '.value[].skuPartNumber'
@@ -109,13 +111,14 @@ AGENT_365
 Microsoft_365_Copilot
 Microsoft_365_E5_(no_Teams)
 ```
-(License present. If the error persists here, the gap is enablement or billing, not licensing.)
+
+> **Important:** these licenses reflect the tenant used during successful validation. Their presence should not be interpreted as a complete list of Work IQ prerequisites. In particular, Microsoft 365 Copilot is not required for direct Work IQ API access according to the current Work IQ licensing documentation; the relevant requirement is access to the underlying Microsoft 365 workloads (here provided by the E5/Teams SKUs) plus the usage-based billing configuration.
 
 ---
 
 ## 4. Tenant enablement output (Runbook Step 1)
 
-`Enable-WorkIQToolsForTenant.ps1` (abridged; the full run creates ten SPs and grants consent on each):
+`Enable-WorkIQToolsForTenant.ps1` (abridged; the full run during validation created ten service principals and granted consent on each):
 
 ```text
 Provisioning MCP Server service principals...
@@ -140,7 +143,7 @@ Work IQ tenant enablement complete!
 Users can now authenticate with the Work IQ CLI.
 ```
 
-Note the first line: "Work IQ Tools already exists". Our custom setup script had created the universal SP earlier, yet the entitlement error persisted until this full enablement ran. The universal SP alone is not enough.
+Note the first line: "Work IQ Tools already exists". A Work IQ service principal had been created earlier by the setup script, yet the entitlement error persisted until the full enablement procedure ran. Validate tenant enablement even when a Work IQ service principal is already present.
 
 ---
 
@@ -200,11 +203,11 @@ Then with real content in the mailbox:
 }
 ```
 
-Real mailbox data flowing through a custom third-party client. This is the core proof for the architecture question.
+Real mailbox data flowing through a custom third-party client. This validates the core data-access path for the architecture question.
 
 ---
 
-## 6. Success: Copilot reasoning via `ask` (Runbook Step 5)
+## 6. Success: Work IQ reasoning via `ask` (Runbook Step 5)
 
 `./workiq-mcp.sh ask "What was decided about the tape-out?"` on a freshly populated tenant:
 
@@ -220,13 +223,13 @@ With any of those details, I can search the relevant meetings, messages, and doc
 and summarize exactly what was decided.
 ```
 
-Even a "no results" answer is evidence: the Copilot pipeline authenticated, ran the multi-source search (meetings, transcripts, emails, chats, files), and reasoned about the response. The 0-result on brand-new content is the semantic index lag described in [Troubleshooting #10](03-troubleshooting.md#10-empty-results-that-look-like-failures-but-are-not); `fetch` on the same content returns it immediately.
+Even a "no results" answer is evidence: the reasoning pipeline authenticated, ran the multi-source search (meetings, transcripts, emails, chats, files), and reasoned about the response. The 0-result on brand-new content is the semantic index lag described in [Troubleshooting #10](03-troubleshooting.md#10-empty-results-that-look-like-failures-but-are-not); `fetch` on the same content returns it immediately.
 
 ---
 
 ## Reproducing this evidence
 
-Every block above comes from the exact commands in [02-runbook.md](02-runbook.md), Step 5. To capture your own evidence run for a customer report:
+Every block above comes from the exact commands in [02-runbook.md](02-runbook.md), Step 5. To capture your own evidence run for a validation report:
 
 ```bash
 {

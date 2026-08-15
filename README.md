@@ -1,65 +1,100 @@
 # Work IQ MCP: Third-Party Agent Integration Runbook
 
-**Validated, end-to-end guide for connecting a third-party, Linux-hosted agent platform to Microsoft 365 data through the Work IQ MCP universal endpoint.**
+**End-to-end validation runbook for integrating a third-party, Linux-hosted agent with Microsoft 365 organizational context through Work IQ MCP.**
 
-This repository documents a complete, real-world validation of the Work IQ MCP integration path for custom and third-party agents. Everything here was tested from a Linux client (WSL Ubuntu) using nothing but `curl`, `jq`, and standard OAuth 2.0. No SDK, no Windows dependency, no Microsoft-hosted runtime.
+This repository documents a tested integration pattern for connecting a custom or third-party agent to the Work IQ MCP endpoint. The validation was performed from a Linux client (WSL Ubuntu) using `curl`, `jq`, and standard OAuth 2.0 flows. The scripts in this repository are intended to validate the protocol, authentication, tenant configuration, billing, and Microsoft 365 data-access path. They are not intended to serve as a production agent implementation.
 
-> **Why this exists:** the happy path is simple, but there are four independent gates (identity roles, tenant enablement, licensing, and billing) that each produce confusing errors when missed. This runbook documents every gate, every error message we hit, and the exact fix, so you don't lose days rediscovering them.
+## Scenario
+
+Contoso operates an existing third-party AI agent platform hosted in a Linux environment. The platform already integrates with enterprise systems such as Jira and Confluence. Contoso wants to extend the agent with Microsoft 365 organizational context, including email, Teams conversations and meetings, files, calendar information, and other user-accessible work data.
+
+This runbook validates whether that architecture can use Work IQ MCP to securely access Microsoft 365 context on behalf of an authenticated user.
+
+## Objective
+
+Validate the integration pattern:
+
+`Third-party Linux-hosted agent -> Work IQ MCP -> Microsoft 365`
+
+The validation focuses on authentication, MCP connectivity, user-scoped Microsoft 365 access, Work IQ reasoning, tenant enablement, and usage-based billing.
+
+## Purpose
+
+A successful Work IQ MCP integration depends on multiple configuration layers, including Microsoft Entra ID authentication, tenant enablement, Microsoft 365 service access, tenant policy, and usage-based billing. Configuration issues across these layers can result in similar authorization or entitlement errors.
+
+This runbook documents a repeatable validation sequence and troubleshooting guidance based on issues observed during testing.
 
 ## What gets validated
 
 | Capability | Tool | Result |
 |---|---|---|
-| Delegated auth from Linux (device code flow) | `workiq-mcp.sh` | OAuth token issued for a custom Entra app |
-| MCP handshake + tool discovery | `tools` command | Server responds, 11 tools listed |
+| Delegated auth from Linux (device code flow) | `workiq-mcp.sh` | OAuth token issued for a custom Microsoft Entra app |
+| MCP handshake + tool discovery | `tools` command | Server responds and exposes the Work IQ tool surface |
 | Entity data access (mail, calendar, files) | `fetch` command | HTTP 200 with real mailbox data |
-| Copilot reasoning over M365 content | `ask` command | Natural-language answers over mail/meetings/files |
+| Work IQ reasoning over Microsoft 365 content | `ask` command | Natural-language answers over mail/meetings/files |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    subgraph customer [Customer environment - Linux]
+    subgraph contoso [Contoso environment - Linux]
         A[Third-party agent platform<br/>or workiq-mcp.sh shell client]
     end
 
     subgraph entra [Microsoft Entra ID]
         B[App registration<br/>public client, delegated]
-        C[Work IQ service principals<br/>provisioned by enablement script]
+        C[Work IQ service principals<br/>provisioned by tenant enablement]
     end
 
     subgraph m365 [Microsoft 365]
-        D[Work IQ MCP universal endpoint<br/>workiq.svc.cloud.microsoft/mcp]
+        D[Work IQ MCP endpoint<br/>workiq.svc.cloud.microsoft/mcp]
         E[Work IQ MCP servers<br/>Mail, Calendar, Teams, OneDrive,<br/>SharePoint, Word, Copilot, ...]
-        F[(M365 data<br/>mailboxes, meetings, files, chats)]
-        G[Admin center<br/>Agents tools policy +<br/>Copilot Cost management billing]
+        F[(Microsoft 365 data<br/>mailboxes, meetings, files, chats)]
+        G[Microsoft 365 admin center<br/>Agents tools policy +<br/>Copilot Cost management billing]
     end
 
     A -- "1. OAuth 2.0 device code<br/>scope: WorkIQAgent.Ask" --> B
     A -- "2. JSON-RPC over HTTPS<br/>Bearer token" --> D
     D --> E
     E -- "delegated, permission-trimmed" --> F
-    G -. "entitlement gate:<br/>Copilot license + pay-as-you-go billing" .-> D
+    G -. "usage and entitlement:<br/>Work IQ access policy +<br/>usage-based billing" .-> D
     C -. "consent prerequisite" .-> D
 ```
 
 Key properties of this architecture:
 
-- **Platform-agnostic.** The endpoint is plain HTTPS + JSON-RPC (MCP Streamable HTTP). Linux, containers, anything with an HTTP client works.
-- **Delegated only.** Every call runs as a signed-in user. Application-only (client credentials) auth is not supported. The agent sees only what the user can see.
-- **Read-only by default.** Write actions (send mail, create events) are disabled tenant-wide until an admin explicitly enables them.
-- **Commercially gated.** Third-party agents are billed by consumption (Copilot Credits / pay-as-you-go), even when the user holds an M365 Copilot license. This is the gate most people miss. See [Troubleshooting #5](docs/03-troubleshooting.md#5-entitlement-error-persists-with-copilot-license-billing-gate).
+- **Protocol-based integration.** The remote Work IQ MCP endpoint uses standard MCP over HTTPS, allowing compatible agent platforms and MCP clients to integrate without requiring a Windows-hosted agent runtime.
+- **User-scoped delegated access.** Work IQ uses Microsoft Entra delegated authentication. Requests execute in the context of the signed-in user and are limited by that user's existing Microsoft 365 permissions and applicable tenant policies. Application-only authentication is not supported.
+- **Read-focused validation.** This runbook primarily validates grounding and read scenarios. Work IQ MCP also exposes write and action capabilities. Production use of those capabilities should be governed through appropriate tenant policies and limited to the requirements of the agent use case.
+- **Consumption-gated.** Custom and third-party agents that use Work IQ are subject to usage-based billing (Copilot Credits). See the licensing and billing model below.
 
-## The four gates
+## Licensing and billing model
 
-Every failed request in our validation traced back to one of these. Check them in order:
+Work IQ API access is independent of Microsoft 365 Copilot licensing. There is no separate Work IQ API per-user license or SKU for custom applications.
 
-| # | Gate | Symptom when missing | Fix |
+For custom and third-party agents, Work IQ API usage is consumption-based and measured using Copilot Credits. Before tool execution, the organization must configure the applicable Work IQ usage-based billing method and ensure that the users participating in the integration are included in the appropriate access and spending policy.
+
+Users must also have access to the underlying Microsoft 365 workloads and content that the agent is expected to query. Work IQ respects the permissions of the authenticated user and does not grant access to Microsoft 365 content that the user could not otherwise access.
+
+> **Important: Work IQ licensing**
+>
+> A Microsoft 365 Copilot license is **not required for direct Work IQ API access**. Custom and third-party agents use Work IQ through a **usage-based billing model based on Copilot Credits**.
+>
+> Users must be licensed and provisioned for the **underlying Microsoft 365 services they need to access**, such as Exchange Online, Teams, SharePoint, or OneDrive.
+>
+> Some Microsoft-hosted integration experiences (for example, the Microsoft Foundry Work IQ quickstart) list Microsoft 365 Copilot licensing as a prerequisite for those specific scenarios. Those requirements should not automatically be applied to a direct third-party Work IQ MCP integration; validate them separately when applicable.
+
+## Required configuration layers
+
+Every failed request during validation traced back to one of these layers. Check them in order:
+
+| # | Layer | Requirement | Symptom when missing |
 |---|---|---|---|
-| 1 | **Identity roles** (Entra role to set up; Azure RBAC for billing) | `Insufficient privileges`, RBAC errors | [Prerequisites](docs/01-prerequisites.md) |
-| 2 | **Tenant enablement** (Work IQ service principals + consent) | Entitlement error even with license | `Enable-WorkIQToolsForTenant.ps1` from [microsoft/work-iq](https://github.com/microsoft/work-iq) |
-| 3 | **Licensing** (M365 Copilot license on the user) | Entitlement error | Assign license in M365 admin center |
-| 4 | **Billing** (pay-as-you-go spending policy for third-party agents) | `The caller is not entitled to use this tool. Please check your billing policy and AI credit entitlement.` | Copilot > Cost management > Get started |
+| 1 | **Identity** | Microsoft Entra app and delegated authentication; correct Entra directory roles for setup and Azure RBAC for billing configuration | `Insufficient privileges`, RBAC errors |
+| 2 | **Tenant enablement** | Work IQ enabled/provisioned for the tenant, with administrative consent | Entitlement error despite billing |
+| 3 | **Microsoft 365 access** | Authenticated user has access to the workloads and data being queried (Exchange Online, Teams, SharePoint, OneDrive) | Empty results or entitlement error |
+| 4 | **Tenant policy** | Work IQ/MCP use permitted for the applicable users and tools | Policy-denied responses |
+| 5 | **Billing** | Usage-based Work IQ billing (Copilot Credits) configured and user in scope | `The caller is not entitled to use this tool. Please check your billing policy and AI credit entitlement.` |
 
 ## Repository map
 
@@ -69,11 +104,11 @@ Every failed request in our validation traced back to one of these. Check them i
 ├── docs/
 │   ├── 01-prerequisites.md       <- send this to stakeholders BEFORE the working session
 │   ├── 02-runbook.md             <- the step-by-step
-│   ├── 03-troubleshooting.md     <- every error we hit, with evidence and fixes
-│   ├── 04-validation-evidence.md <- real terminal outputs proving each layer works
+│   ├── 03-troubleshooting.md     <- errors observed during validation, with evidence and fixes
+│   ├── 04-validation-evidence.md <- terminal outputs captured during validation
 │   └── images/                   <- screenshots referenced by the docs
 └── scripts/
-    ├── setup-workiq-app.sh       <- idempotent Entra app registration (bash + az cli)
+    ├── setup-workiq-app.sh       <- idempotent Microsoft Entra app registration (bash + az cli)
     └── workiq-mcp.sh             <- shell-script MCP client (curl + jq, device code auth)
 ```
 
@@ -81,10 +116,10 @@ Every failed request in our validation traced back to one of these. Check them i
 
 ```bash
 # 1. Clone this repo and Microsoft's Work IQ repo
-git clone https://github.com/<your-org>/workiq-mcp-third-party-runbook
+git clone https://github.com/renatocamara/workiq-mcp-third-party-runbook
 git clone https://github.com/microsoft/work-iq
 
-# 2. One-time tenant enablement (PowerShell, Global Admin)
+# 2. One-time tenant enablement (PowerShell, Global Administrator)
 cd work-iq
 Install-Module Microsoft.Graph -Scope CurrentUser
 ./scripts/Enable-WorkIQToolsForTenant.ps1
@@ -95,11 +130,11 @@ az login --use-device-code
 ./setup-workiq-app.sh
 # copy the two exports it prints
 
-# 4. Activate pay-as-you-go billing (portal, one time)
-#    M365 admin center > Copilot > Cost management > Get started
+# 4. Configure usage-based billing (portal, one time)
+#    Microsoft 365 admin center > Copilot > Cost management > Get started
 #    Full walkthrough: docs/02-runbook.md, Step 4
 
-# 5. Test
+# 5. Test (sign in as a user provisioned for the Microsoft 365 workloads under test)
 export TENANT_ID="..."   # from step 3
 export CLIENT_ID="..."   # from step 3
 ./workiq-mcp.sh tools
@@ -123,22 +158,28 @@ This runbook validates the **integration contract**: the endpoint, delegated aut
 
 **MCP client hardening.** `workiq-mcp.sh` is a validation probe, not production code. A real agent platform should use its existing MCP client library and add what the probe deliberately omits: session re-establishment when `Mcp-Session-Id` expires, proper SSE stream handling, timeouts, retry with exponential backoff for throttling (429), and an error taxonomy that distinguishes policy-denied (403, do not retry), entitlement failures (billing problem, alert an admin), and transient errors (retry). Token handling moves from a cache file to a secrets vault, ideally via MSAL rather than raw OAuth.
 
-**Multi-user lifecycle.** In production every user authenticates individually. Tenant-wide admin consent (Runbook Step 2) already covers consent at scale, but design for token expiry and revocation mid-task: long-running agentic flows on delegated auth need a defined UX for "your session needs re-authentication", and Conditional Access / Continuous Access Evaluation can invalidate tokens at any moment. Keep a strict mapping between platform users and Entra identities; an agent that mixes tokens across users is a security incident.
+**Multi-user lifecycle.** In production every user authenticates individually. Tenant-wide admin consent (Runbook Step 2) already covers consent at scale, but design for token expiry and revocation mid-task: long-running agentic flows on delegated auth need a defined UX for "your session needs re-authentication", and Conditional Access / Continuous Access Evaluation can invalidate tokens at any moment. Keep a strict mapping between platform users and Microsoft Entra identities; an agent that mixes tokens across users is a security incident.
 
-**Governance.** Apply Conditional Access policies to the app registration (MFA, device compliance), log every call for audit (who asked what, answered from which data), and treat the oversharing review as a blocking prerequisite rather than a recommendation: semantic search over M365 turns every excessive permission into a natural-language-accessible answer. Decide write actions formally; the read-only default is easy in a pilot, and the first request to enable writes deserves a real review.
+**Governance.** Apply Conditional Access policies to the app registration (MFA, device compliance), log every call for audit (who asked what, answered from which data), and treat the oversharing review as a blocking prerequisite rather than a recommendation: semantic search over Microsoft 365 turns every excessive permission into a natural-language-accessible answer. Decide write actions formally; a read-focused posture is easy in a pilot, and the first request to enable writes deserves a real review.
 
-**Billing as an ongoing operation.** The small credit cap used during validation is a test guardrail. Production needs consumption forecasting (measure what a typical user session costs; nobody knows until it is measured), spending policies segmented by group, alerts before the cap (hitting the limit mid-month disables the agent for everyone until the next cycle), and a named owner for the consumption bill. Pay-as-you-go creates a FinOps conversation that per-user licensing never did.
+**Billing as an ongoing operation.** The small credit cap used during validation is a test guardrail. Production needs consumption forecasting (measure what a typical user session costs; nobody knows until it is measured), spending policies segmented by group, alerts before the cap (hitting the limit mid-month disables the agent for everyone until the next cycle), and a named owner for the consumption bill. Usage-based billing creates a FinOps conversation that per-user licensing never did.
 
-**Data freshness expectations.** As documented in [Troubleshooting #10](docs/03-troubleshooting.md#10-empty-results-that-look-like-failures-but-are-not), the Copilot semantic index behind `ask` lags raw entity access by hours for new content, while `fetch` is immediate. Productize that: either surface the freshness caveat to users, or combine `ask` (reasoning) with `fetch` (deterministic, fresh data) under the hood.
+**Data freshness expectations.** As documented in [Troubleshooting #10](docs/03-troubleshooting.md#10-empty-results-that-look-like-failures-but-are-not), the semantic index behind `ask` lags raw entity access by hours for new content, while `fetch` is immediate. Productize that: either surface the freshness caveat to users, or combine `ask` (reasoning) with `fetch` (deterministic, fresh data) under the hood.
 
-**Preview volatility.** Validated against server v1.0.165.0; tool names, counts, and admin surfaces can change while Work IQ MCP is in preview. Track the changelog, pin expectations to observed behavior, and keep a direct Microsoft Graph fallback designed for business-critical paths.
+**Service evolution.** Validated against server v1.0.165.0; tool names, counts, and admin surfaces can evolve. Track the changelog, pin expectations to observed behavior, and keep a direct Microsoft Graph fallback designed for business-critical paths.
 
 **Setup as code.** The one-time manual setup here (enablement script, `setup-workiq-app.sh`) should become IaC (Terraform/Bicep for the app registration and permission grants) and a formal change request for tenant enablement, executed by the organization's identity team rather than an individual admin.
 
-A useful way to frame this with stakeholders: this runbook proves what is settled; the list above is the engineering and governance work that remains, and none of it invalidates what was validated here.
+A useful way to frame this with stakeholders: this runbook validates what is settled; the list above is the engineering and governance work that remains, and none of it invalidates what was validated here.
+
+## Scope and limitations
+
+This repository validates the Work IQ MCP integration pattern from a Linux environment. It does not provide a production implementation of a specific third-party agent platform.
+
+Production deployments should separately address authentication lifecycle management, secure credential and token handling, Conditional Access requirements, session management, observability, retry behavior, capacity and cost controls, tenant governance, and security review.
 
 ## Status and disclaimers
 
-- Work IQ MCP is in **public preview**; behavior, tool names, and admin surfaces may change. Validated against `WorkIQ.MCP.Server` v1.0.165.0 (August 2026).
-- Consumption billing applies to third-party agent usage. Set spending limits before testing in any tenant you care about.
-- This is a field-engineering artifact, not an official Microsoft product. Official docs: [Work IQ MCP overview](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/work-iq/mcp/overview) and [microsoft/work-iq](https://github.com/microsoft/work-iq).
+- Validated against `WorkIQ.MCP.Server` v1.0.165.0 (August 2026). Service behavior, tool surface, and admin center experiences can evolve; always confirm against current Microsoft documentation.
+- Consumption billing applies to custom and third-party agent usage. Set spending limits before testing in any tenant you care about.
+- This is a field-engineering artifact, not an official Microsoft product. Official docs: [Work IQ overview](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/work-iq/), [Work IQ MCP overview](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/work-iq/mcp/overview), and [microsoft/work-iq](https://github.com/microsoft/work-iq).

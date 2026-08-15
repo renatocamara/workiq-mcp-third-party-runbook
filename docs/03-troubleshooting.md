@@ -1,6 +1,6 @@
-# Troubleshooting: every error we hit, with fixes
+# Troubleshooting Guide
 
-All of these occurred during real validation across three tenants. They are ordered roughly as you will encounter them. Search this page for your exact error text.
+This section documents errors observed during validation, their likely causes, diagnostic checks, and remediation guidance. They are ordered roughly as you will encounter them. Search this page for your exact error text.
 
 ---
 
@@ -22,10 +22,10 @@ All of these occurred during real validation across three tenants. They are orde
 
 **Symptom:** `az ad sp create` / `az ad app create` fails immediately.
 
-**Cause:** the signed-in user lacks an **Entra directory role**. Two traps, both field-hit:
+**Cause:** the signed-in user lacks a **Microsoft Entra directory role**. Two conditions to check, both observed during validation:
 
-1. **Azure subscription Owner is not an Entra role.** RBAC governs Azure resources; app registrations and service principals are directory operations requiring Global Administrator, Application Administrator, or Cloud Application Administrator.
-2. **PIM-eligible roles are not active roles.** If Global Admin is assigned as *eligible*, you hold Reader-level access until you activate it.
+1. **Azure subscription Owner is not a Microsoft Entra role.** Azure RBAC governs Azure resources; app registrations and service principals are directory operations requiring Global Administrator, Application Administrator, or Cloud Application Administrator.
+2. **PIM-eligible roles are not active roles.** If Global Administrator is assigned as *eligible*, you hold Reader-level access until you activate it.
 
 **Diagnosis:** check ACTIVE roles (this is what your token carries):
 ```bash
@@ -33,15 +33,15 @@ az rest --method get \
   --url "https://graph.microsoft.com/v1.0/me/memberOf/microsoft.graph.directoryRole?\$select=displayName" \
   | jq -r '.value[].displayName'
 ```
-If you see only `Global Reader` or similar, but expect Global Admin, your role is PIM-eligible and not activated:
+If you see only `Global Reader` or similar, but expect Global Administrator, your role is PIM-eligible and not activated:
 
 ![Only reader roles active](images/pim-active-assignments-reader-only.png)
 
-**Fix:** Entra portal > Privileged Identity Management > My roles > Microsoft Entra roles > **Eligible assignments** > Activate:
+**Fix:** Microsoft Entra portal > Privileged Identity Management > My roles > Microsoft Entra roles > **Eligible assignments** > Activate:
 
 ![Eligible Global Administrator](images/pim-eligible-global-admin.png)
 
-On the activation panel, **uncheck "Custom activation start time"** if it defaults to a future date (ours defaulted to a date more than a year out, which silently schedules the activation instead of applying it), enter a justification, Activate:
+On the activation panel, **uncheck "Custom activation start time"** if it defaults to a future date (during validation it defaulted to a date more than a year out, which silently schedules the activation instead of applying it), enter a justification, Activate:
 
 ![Activation panel](images/pim-activate-panel.png)
 
@@ -57,15 +57,15 @@ On the activation panel, **uncheck "Custom activation start time"** if it defaul
 
 **Cause:** the Azure CLI's first-party Graph token does not include PIM role-management scopes, and you cannot easily add them.
 
-**Fix:** do not fight it. Inspect and activate PIM roles in the portal (see #2). CLI is the wrong tool for this one task.
+**Fix:** inspect and activate PIM roles in the portal (see #2). The CLI is the wrong tool for this one task.
 
 ---
 
-## 4. Entitlement error in a tenant without M365: `The caller is not entitled to use this tool. Please check your billing policy and AI credit entitlement.`
+## 4. Entitlement error in a tenant without the required Microsoft 365 workloads: `The caller is not entitled to use this tool. Please check your billing policy and AI credit entitlement.`
 
 **Symptom:** MCP handshake and `tools/list` succeed, but every `fetch`/`ask` returns the entitlement error.
 
-**Cause (variant A):** the tenant has no Microsoft 365 at all. We hit this twice: one tenant had only `AAD_PREMIUM_P2`, another was Entra ID Free. No mailbox, no Copilot license, nothing to bill or query. No configuration fixes this; it is the wrong tenant.
+**Observed condition (variant A):** the tenant contained Microsoft Entra licensing but did not contain the Microsoft 365 workloads or user data required for the test. This was observed twice during validation: one tenant had only `AAD_PREMIUM_P2`, another was Microsoft Entra ID Free. No mailbox, no Teams, no files: nothing to query and no data plane to bill against. No configuration fixes this; the tenant is unsuitable for this validation scenario.
 
 **Diagnosis:**
 ```bash
@@ -73,28 +73,27 @@ az rest --method get --url "https://graph.microsoft.com/v1.0/subscribedSkus?\$se
   | jq -r '.value[] | "\(.skuPartNumber)\tavailable:\(.prepaidUnits.enabled - .consumedUnits)"'
 ```
 
-**Fix:** pick a tenant with M365 E3/E5 + Copilot SKUs (see [Prerequisites](01-prerequisites.md)). Confirm the test user's own licenses too:
+**Fix:** pick a tenant with the Microsoft 365 workloads required for the test (see [Prerequisites](01-prerequisites.md)). Confirm the test user's own workload licensing too:
 ```bash
 az rest --method get --url "https://graph.microsoft.com/v1.0/me/licenseDetails" | jq -r '.value[].skuPartNumber'
 ```
-A healthy result looks like `Microsoft_365_Copilot` + an E5 SKU:
 
-![Copilot licenses present](images/m365-admin-home-copilot-licenses.png)
+> **Note:** the requirement here is Microsoft 365 **workload access** (Exchange Online, Teams, SharePoint, OneDrive), not a Microsoft 365 Copilot license. Work IQ API access is independent of Microsoft 365 Copilot licensing; see the [licensing and billing model](../README.md#licensing-and-billing-model).
 
 ---
 
-## 5. Entitlement error persists WITH Copilot license (billing gate)
+## 5. Entitlement error persists WITH workload access (billing/enablement gate)
 
-**Symptom:** same error text as #4, but `me/licenseDetails` shows `Microsoft_365_Copilot`, and the official first-party `workiq` CLI works for the same user.
+**Symptom:** same error text as #4, but the tenant and user have the required Microsoft 365 workloads, and the official first-party `workiq` CLI works for the same user.
 
-**Cause:** two stacked requirements beyond the license:
+**Observed conditions:** two stacked requirements beyond workload access:
 
-1. **Incomplete tenant enablement.** The universal Work IQ SP alone is not enough; the ten MCP-server SPs and their consents must exist. Fix: run `Enable-WorkIQToolsForTenant.ps1` from [microsoft/work-iq](https://github.com/microsoft/work-iq) as Global Admin (Runbook Step 1).
-2. **No usage-based billing policy.** A Copilot license entitles first-party clients; **custom/third-party agents are billed by consumption** and require an active pay-as-you-go spending policy. This is the key commercial finding of the whole validation. Fix: Runbook Step 4 (Copilot > Cost management > Get started).
+1. **Incomplete tenant enablement.** A Work IQ service principal alone was not sufficient during validation; the entitlement error persisted until the full Microsoft-provided enablement procedure ran (MCP-server service principals plus consents). Fix: run `Enable-WorkIQToolsForTenant.ps1` from [microsoft/work-iq](https://github.com/microsoft/work-iq) as Global Administrator (Runbook Step 1).
+2. **No usage-based billing policy.** Custom and third-party agents that use Work IQ are billed by consumption (Copilot Credits) and require an active spending policy; this applies regardless of the user's Microsoft 365 Copilot licensing status. Fix: Runbook Step 4 (Copilot > Cost management > Get started).
 
-The definitive isolation test: if `workiq ask` (first-party CLI) answers but your own app gets the entitlement error, the gap is billing policy, not license or enablement.
+**Isolation test:** if the first-party `workiq` CLI succeeds for the same user and tenant while the custom client returns an entitlement error, this is a strong indication that core Work IQ tenant provisioning and user data access are functioning. Next, compare the authentication context, application permissions, and billing/access policy applied to the custom integration.
 
-**Caution when comparing with the CLI:** browser SSO can silently sign the CLI into your corporate account instead of the test user, making the CLI "work" against the wrong tenant. Always pass `--account <test-upn>` and sanity-check whose calendar/mail the answers describe.
+**Caution when comparing with the CLI:** browser SSO can silently sign the CLI into a different account (for example, your corporate identity) instead of the test user, making the CLI "work" against the wrong tenant. Always pass `--account <test-upn>` and sanity-check whose calendar/mail the answers describe.
 
 ---
 
@@ -108,7 +107,7 @@ does not have authorization to perform action 'Microsoft.Resources/subscriptions
 
 ![RBAC error on billing activation](images/billing-rbac-error.png)
 
-**Cause:** the mirror image of #2. The admin has the Entra role (Global Admin) but **no Azure RBAC on the chosen subscription**. Billing setup creates a resource group, which is an ARM operation.
+**Cause:** the mirror image of #2. The admin has the Microsoft Entra role (Global Administrator) but **no Azure RBAC on the chosen subscription**. Billing setup creates Azure resources, which is an ARM operation.
 
 **Fix option A (preferred):** have a subscription Owner grant you Contributor:
 ```bash
@@ -116,8 +115,8 @@ az role assignment create --assignee "<your-upn>" --role "Contributor" \
   --scope "/subscriptions/<sub-id>"
 ```
 
-**Fix option B (self-service if you are Global Admin):** use the elevation toggle, then self-assign:
-1. Entra ID > **Properties** > "Access management for Azure resources" > **Yes** > Save:
+**Fix option B (self-service if you are Global Administrator):** use the elevation toggle, then self-assign:
+1. Microsoft Entra ID > **Properties** > "Access management for Azure resources" > **Yes** > Save:
 
    ![Elevated access toggle](images/entra-elevated-access-toggle.png)
 2. Refresh the CLI token and assign the role:
@@ -135,10 +134,10 @@ az role assignment create --assignee "<your-upn>" --role "Contributor" \
 
 **Symptom:** all fields look filled but Activate is greyed out.
 
-**Causes and fixes, in the order we hit them:**
+**Causes and fixes, in the order observed:**
 
 1. **Per-user limit toggle on with empty field.** The red validation text "Enter a maximum monthly credit limit, or turn off user limits" is easy to miss. Enter a value or switch the toggle off.
-2. **Subscription not actually selected.** The dropdown shows typed/suggested text without committing it. Click the dropdown and select the subscription **from the list**; the Activate button lights up immediately when the selection registers.
+2. **Subscription not actually selected.** The dropdown shows typed/suggested text without committing it. Click the dropdown and select the subscription **from the list**; the Activate button enables immediately when the selection registers.
 
 ---
 
@@ -146,7 +145,7 @@ az role assignment create --assignee "<your-upn>" --role "Contributor" \
 
 **Symptom:** `npx -y @microsoft/workiq` fails on a corporate Windows machine.
 
-**Cause:** enterprise npm policy (1ES) blocks remote tarball fetches on the Windows side.
+**Cause:** enterprise npm policy blocks remote tarball fetches on the Windows side.
 
 **Fix:** run npm/npx inside WSL, where the default public registry applies. Combine with the browser bridge from #1 for sign-in.
 
@@ -154,19 +153,19 @@ az role assignment create --assignee "<your-upn>" --role "Contributor" \
 
 ## 9. `workiq` CLI: `'-t' was not matched`
 
-**Symptom:** older docs/blogs show `workiq ask -t <tenant-id>`; current versions reject `-t`.
+**Symptom:** older articles show `workiq ask -t <tenant-id>`; current versions reject `-t`.
 
-**Fix:** the current selector is `--account <upn>` (uses/creates the cached account). Run `workiq ask -h` for the live option list; the tool is in preview and flags change.
+**Fix:** the current selector is `--account <upn>` (uses/creates the cached account). Run `workiq ask -h` for the live option list; the tool evolves and flags change.
 
 ---
 
 ## 10. Empty results that look like failures (but are not)
 
-Three distinct cases, all encountered:
+Three distinct cases, all observed during validation:
 
 1. **`fetch` returns 200 with `value: []`.** The data path works; the mailbox/calendar is genuinely empty. Populate it and re-run. Note that a "send to self" email may not arrive; sending from a different mailbox is more reliable.
-2. **`ask` finds nothing while `fetch` shows the data.** The Copilot semantic index lags raw entity access by hours (sometimes a day) for new users and new content. Expected in preview; re-test `ask` later. `fetch` is the deterministic check.
-3. **First-party CLI shows data your `fetch` does not (or vice versa).** Check which account each client actually used; browser SSO loves to pick your corporate identity (see #5, caution note).
+2. **`ask` finds nothing while `fetch` shows the data.** The semantic index lags raw entity access by hours (sometimes a day) for new users and new content. Expected behavior; re-test `ask` later. `fetch` is the deterministic check.
+3. **First-party CLI shows data your `fetch` does not (or vice versa).** Check which account each client actually used; browser SSO can silently pick a different identity (see #5, caution note).
 
 ---
 
@@ -190,9 +189,10 @@ jq -r '.access_token' ~/.workiq_token | cut -d. -f2 | tr '_-' '/+' \
 ```
 "The caller is not entitled to use this tool..."
 │
-├─ Tenant has no M365/Copilot SKUs?            -> wrong tenant (#4)
-├─ User missing Copilot license?               -> assign license (#4)
-├─ Enable-WorkIQToolsForTenant.ps1 never run?  -> run it (#5.1)
-├─ No pay-as-you-go spending policy active?    -> activate billing (#5.2, Runbook Step 4)
-└─ Policy activated minutes ago?               -> wait 5 min, refresh token, retry
+├─ Tenant lacks the Microsoft 365 workloads under test?   -> unsuitable tenant (#4)
+├─ User not provisioned for those workloads?              -> fix workload licensing (#4)
+├─ Tenant enablement never run (or partial)?              -> run enablement (#5.1)
+├─ No usage-based spending policy active?                 -> configure billing (#5.2, Runbook Step 4)
+├─ User outside the billing/access policy scope?          -> include the user (Runbook Step 4)
+└─ Policy activated minutes ago?                          -> wait 5 min, refresh token, retry
 ```
