@@ -37,20 +37,20 @@ This runbook documents a repeatable validation sequence and troubleshooting guid
 
 ```mermaid
 flowchart LR
-    subgraph contoso [Contoso environment - Linux]
-        A[Third-party agent platform<br/>or workiq-mcp.sh shell client]
+    subgraph contoso ["Contoso environment - Linux"]
+        A["Third-party agent platform<br/>or workiq-mcp.sh shell client"]
     end
 
-    subgraph entra [Microsoft Entra ID]
-        B[App registration<br/>public client, delegated]
-        C[Work IQ service principals<br/>provisioned by tenant enablement]
+    subgraph entra ["Microsoft Entra ID"]
+        B["App registration<br/>public client, delegated"]
+        C["Work IQ service principals<br/>provisioned by tenant enablement"]
     end
 
-    subgraph m365 [Microsoft 365]
-        D[Work IQ MCP endpoint<br/>workiq.svc.cloud.microsoft/mcp]
-        E[Work IQ MCP servers<br/>Mail, Calendar, Teams, OneDrive,<br/>SharePoint, Word, Copilot, ...]
-        F[(Microsoft 365 data<br/>mailboxes, meetings, files, chats)]
-        G[Microsoft 365 admin center<br/>Agents tools policy +<br/>Copilot Cost management billing]
+    subgraph m365 ["Microsoft 365"]
+        D["Work IQ MCP endpoint<br/>workiq.svc.cloud.microsoft/mcp"]
+        E["Work IQ MCP servers<br/>Mail, Calendar, Teams, OneDrive,<br/>SharePoint, Word, Copilot, and more"]
+        F[("Microsoft 365 data<br/>mailboxes, meetings, files, chats")]
+        G["Microsoft 365 admin center<br/>Agents tools policy +<br/>Copilot Cost management billing"]
     end
 
     A -- "1. OAuth 2.0 device code<br/>scope: WorkIQAgent.Ask" --> B
