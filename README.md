@@ -116,7 +116,7 @@ Every failed request during validation traced back to one of these layers. Check
 
 ## Quickstart (assuming prerequisites are done)
 
-This is the condensed path. Each numbered step below corresponds to a step in [docs/02-runbook.md](docs/02-runbook.md), which adds the expected outputs and a validation check per stage; if this is your first run, follow the runbook instead.
+Complete [docs/01-prerequisites.md](docs/01-prerequisites.md) first; it is also the checklist to send stakeholders before a working session. This is the condensed path. Each numbered step below corresponds to a step in [docs/02-runbook.md](docs/02-runbook.md), which adds the expected outputs and a validation check per stage; if this is your first run, follow the runbook instead.
 
 ```bash
 # 1. Clone this repo and Microsoft's Work IQ repo
