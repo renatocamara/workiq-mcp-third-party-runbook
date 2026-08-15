@@ -52,15 +52,15 @@ flowchart LR
         D["Work IQ MCP endpoint<br/>workiq.svc.cloud.microsoft/mcp"]
         E["Work IQ MCP servers<br/>Mail, Calendar, Teams, OneDrive,<br/>SharePoint, Word, Copilot, and more"]
         F[("Microsoft 365 data<br/>mailboxes, meetings, files, chats")]
-        G["Microsoft 365 admin center<br/>Agents tools policy +<br/>Copilot Cost management billing"]
+        G["Microsoft 365 admin center<br/>Agents tools policy and billing"]
     end
 
-    A -- "1. OAuth 2.0 device code<br/>scope: WorkIQAgent.Ask" --> B
-    A -- "2. JSON-RPC over HTTPS<br/>Bearer token" --> D
+    A -->|"1. OAuth 2.0 device code, scope WorkIQAgent.Ask"| B
+    A -->|"2. JSON-RPC over HTTPS, Bearer token"| D
     D --> E
-    E -- "delegated, permission-trimmed" --> F
-    G -. "usage and entitlement:<br/>Work IQ access policy +<br/>usage-based billing" .-> D
-    C -. "consent prerequisite" .-> D
+    E -->|"delegated, permission-trimmed"| F
+    G -.->|"usage-based billing and access policy"| D
+    C -.->|"consent prerequisite"| D
 ```
 
 Key properties of this architecture:
