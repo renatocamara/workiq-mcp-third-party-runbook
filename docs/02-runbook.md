@@ -67,7 +67,7 @@ Complete the device-code sign-in as the test user (provisioned for the Microsoft
 
 Custom and third-party agents that use Work IQ APIs are subject to usage-based billing through Copilot Credits. Microsoft 365 Copilot licensing does not replace this consumption requirement for third-party Work IQ API usage. Until a spending policy is active, data calls fail with an entitlement error.
 
-1. Open the **Microsoft 365 admin center** (admin.cloud.microsoft) as an admin.
+1. Open the **Microsoft 365 admin center** (admin.cloud.microsoft) as a **Global Administrator or Billing Administrator** (the roles that can set or change the billing method).
 2. Go to **Copilot > Cost management**. The page states it applies to Copilot Cowork and **Work IQ API**.
 3. Click **Get started**. The default spending policy panel opens:
 

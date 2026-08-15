@@ -26,14 +26,17 @@ az rest --method get --url "https://graph.microsoft.com/v1.0/me/licenseDetails" 
 
 Confirm that licenses providing the Microsoft 365 workloads relevant to the validation are present in the first list and assigned to the test user in the second. Examples include licenses that provision Exchange Online, Teams, SharePoint, and OneDrive. A tenant whose only SKU is Microsoft Entra (for example, `AAD_PREMIUM_P2`) is unsuitable for this validation scenario: not because a license named Copilot is missing, but because the Microsoft 365 data plane you want to query does not exist there.
 
-## 2. Identity roles (this is TWO separate systems)
+## 2. Identity roles (validate each dimension independently)
 
-Azure RBAC and Microsoft Entra directory roles serve different purposes in this configuration and should be validated independently. You need both, for different steps:
+Microsoft Entra directory roles, Microsoft 365 admin center billing roles, and Azure RBAC serve different purposes in this configuration and should be validated independently:
 
 | Step | System | Role needed |
 |---|---|---|
-| Tenant enablement script + app registration + admin consent | **Microsoft Entra directory role** | Global Administrator (or Application Administrator for app steps; consent needs Global Administrator / Privileged Role Administrator) |
-| Usage-based billing activation (creates Azure resources) | **Azure RBAC on the subscription** | Contributor (or Owner) on the billing subscription |
+| Tenant enablement script + app registration + admin consent | **Microsoft Entra directory role** | Global Administrator (validated and documented path) |
+| Usage-based billing method configuration (Microsoft 365 admin center) | **Microsoft 365 admin center role** | Global Administrator or Billing Administrator. AI Administrator and License Administrator can manage spending policies, limits, and alerts, but cannot set or change the billing method. |
+| Azure resource creation for pay-as-you-go billing | **Azure RBAC on the subscription** | Contributor (or Owner) on the selected subscription |
+
+> Note: the Microsoft-provided enablement script may support additional application-administration roles; follow the current script requirements if using a least-privilege alternative.
 
 Important gotchas, all observed during validation:
 
@@ -95,6 +98,7 @@ During the validation documented in this repository, this script provisioned the
 - [ ] Test user provisioned for those workloads (mailbox, Teams, files)
 - [ ] Microsoft Entra admin role identified, and PIM-activated if applicable
 - [ ] Azure RBAC (Contributor+) confirmed on the billing subscription
+- [ ] Microsoft 365 admin center billing role confirmed (Global Administrator or Billing Administrator)
 - [ ] Linux box with curl, jq, Azure CLI
 - [ ] Billing subscription + spending limit decided
 - [ ] (Optional) Tenant enablement already executed
