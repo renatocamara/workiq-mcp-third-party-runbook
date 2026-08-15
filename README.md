@@ -80,7 +80,7 @@ Users must also have access to the underlying Microsoft 365 workloads and conten
 
 > **Important: Work IQ licensing**
 >
-> A Microsoft 365 Copilot license is **not required for direct Work IQ API access**. Custom and third-party agents use Work IQ through a **usage-based billing model based on Copilot Credits**.
+> A Microsoft 365 Copilot license is **not required for direct Work IQ API access**. Custom and third-party agents use Work IQ through a **usage-based billing model based on Copilot Credits**. Source: [Work IQ overview](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/work-iq/) and [Work IQ API overview](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/work-iq/api-overview).
 >
 > Users must be licensed and provisioned for the **underlying Microsoft 365 services they need to access**, such as Exchange Online, Teams, SharePoint, or OneDrive.
 >
