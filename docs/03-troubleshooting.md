@@ -164,7 +164,7 @@ az role assignment create --assignee "<your-upn>" --role "Contributor" \
 Three distinct cases, all observed during validation:
 
 1. **`fetch` returns 200 with `value: []`.** The data path works; the mailbox/calendar is genuinely empty. Populate it and re-run. Note that a "send to self" email may not arrive; sending from a different mailbox is more reliable.
-2. **`ask` finds nothing while `fetch` shows the data.** The semantic index lags raw entity access by hours (sometimes a day) for new users and new content. Expected behavior; re-test `ask` later. `fetch` is the deterministic check.
+2. **`ask` finds nothing while `fetch` shows the data.** Observed during validation with newly created users and content: `fetch` returned the data before it became discoverable through `ask`, consistent with asynchronous indexing; latency can vary. Wait for indexing and re-test `ask` later. `fetch` is the deterministic check.
 3. **First-party CLI shows data your `fetch` does not (or vice versa).** Check which account each client actually used; browser SSO can silently pick a different identity (see #5, caution note).
 
 ---

@@ -6,7 +6,7 @@ Complete the following checks before the validation session. Each prerequisite m
 
 Select a tenant that contains the Microsoft 365 workloads and user data required for the validation. Verify that:
 
-- [ ] The tenant contains the Microsoft 365 workloads required for the test, such as Exchange Online, Microsoft Teams, SharePoint, or OneDrive. Work IQ grounds on content; a Microsoft Entra-only tenant has nothing to query.
+- [ ] The tenant contains the Microsoft 365 workloads required for the test, such as Exchange Online, Microsoft Teams, SharePoint, or OneDrive. Work IQ grounds on content; a Microsoft Entra-only tenant does not provide the Microsoft 365 workload data required for this validation.
 - [ ] The test user is licensed and provisioned for the Microsoft 365 workloads that will be queried.
 - [ ] An Azure subscription and resource group are available for the Work IQ usage-based billing configuration.
 - [ ] The test user will be included in the applicable Work IQ billing/access policy (configured in Runbook Step 4).
@@ -24,7 +24,7 @@ az rest --method get --url "https://graph.microsoft.com/v1.0/subscribedSkus?\$se
 az rest --method get --url "https://graph.microsoft.com/v1.0/me/licenseDetails" | jq -r '.value[].skuPartNumber'
 ```
 
-You want to see Microsoft 365 workload SKUs (for example, E3/E5) in the first list and assigned to the test user in the second. A tenant whose only SKU is Microsoft Entra (for example, `AAD_PREMIUM_P2`) is unsuitable for this validation scenario: not because a license named Copilot is missing, but because the Microsoft 365 data plane you want to query does not exist there.
+Confirm that Microsoft 365 workload SKUs relevant to the validation (for example, E3/E5) are present in the first list and assigned to the test user in the second. A tenant whose only SKU is Microsoft Entra (for example, `AAD_PREMIUM_P2`) is unsuitable for this validation scenario: not because a license named Copilot is missing, but because the Microsoft 365 data plane you want to query does not exist there.
 
 ## 2. Identity roles (this is TWO separate systems)
 

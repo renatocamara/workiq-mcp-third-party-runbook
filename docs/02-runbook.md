@@ -104,7 +104,7 @@ rm -f ~/.workiq_token
 **Expected outputs:**
 
 - `fetch` returns `"statusCode": 200` with `"isError": false`. An empty `value: []` with 200 still counts as success for a user with an empty mailbox; the entitlement and data path are working. Populate the mailbox (send the user an email from another account) and re-run to see real data flow.
-- `ask` returns a natural-language answer. For newly created users/content, `ask` may report 0 results while `fetch` shows the data: the semantic index lags behind raw entity access by hours. This is expected behavior, not a failure. Re-test `ask` the next day for grounded answers.
+- `ask` returns a natural-language answer. For newly created users/content, `ask` may report 0 results while `fetch` shows the data. During validation this was consistent with asynchronous indexing: newly created content appeared in `fetch` before it became discoverable through `ask`, and indexing latency can vary. If this happens, wait for indexing to complete and re-test `ask` later.
 
 **Validation check:** all three commands return without the entitlement error. The integration path is validated. Compare your outputs against the captured known-good runs in [04-validation-evidence.md](04-validation-evidence.md).
 
@@ -134,4 +134,4 @@ az role assignment delete --assignee "<upn>" --role "Contributor" \
 
 - Deactivate or adjust the spending policy in Copilot > Cost management if the tenant should stop accruing charges.
 - If you used the Global Administrator **"Access management for Azure resources"** elevation, switch it back to **No** in Microsoft Entra ID > Properties.
-- The Work IQ service principals from Step 1 can stay; they are inert without entitled callers and save re-enablement later.
+- The Work IQ service principals provisioned in Step 1 generally do not need to be removed as part of validation cleanup; retain or remove them according to the organization's tenant governance requirements.

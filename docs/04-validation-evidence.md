@@ -223,7 +223,7 @@ With any of those details, I can search the relevant meetings, messages, and doc
 and summarize exactly what was decided.
 ```
 
-Even a "no results" answer is evidence: the reasoning pipeline authenticated, ran the multi-source search (meetings, transcripts, emails, chats, files), and reasoned about the response. The 0-result on brand-new content is the semantic index lag described in [Troubleshooting #10](03-troubleshooting.md#10-empty-results-that-look-like-failures-but-are-not); `fetch` on the same content returns it immediately.
+Even a "no results" answer is evidence: the reasoning pipeline authenticated, ran the multi-source search (meetings, transcripts, emails, chats, files), and reasoned about the response. The 0-result on brand-new content is consistent with the asynchronous indexing behavior described in [Troubleshooting #10](03-troubleshooting.md#10-empty-results-that-look-like-failures-but-are-not); `fetch` on the same content returns it immediately.
 
 ---
 
