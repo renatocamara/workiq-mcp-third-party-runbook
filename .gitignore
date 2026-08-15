@@ -16,6 +16,9 @@ validation-evidence-*.log
 *.xlsx
 ~$*
 
+# Personal speech/teleprompter notes (local only, never commit)
+speech-*.md
+
 # Editor and OS noise
 .vscode/
 .idea/
