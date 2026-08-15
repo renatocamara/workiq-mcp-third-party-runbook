@@ -20,11 +20,11 @@ az login --use-device-code
 # Which Microsoft 365 workload SKUs exist in the tenant?
 az rest --method get --url "https://graph.microsoft.com/v1.0/subscribedSkus?\$select=skuPartNumber,prepaidUnits,consumedUnits" \
   | jq -r '.value[] | "\(.skuPartNumber)\tavailable:\(.prepaidUnits.enabled - .consumedUnits)"'
-# Which workloads is YOUR test user licensed for?
+# Which workloads is the test user licensed for?
 az rest --method get --url "https://graph.microsoft.com/v1.0/me/licenseDetails" | jq -r '.value[].skuPartNumber'
 ```
 
-Confirm that Microsoft 365 workload SKUs relevant to the validation (for example, E3/E5) are present in the first list and assigned to the test user in the second. A tenant whose only SKU is Microsoft Entra (for example, `AAD_PREMIUM_P2`) is unsuitable for this validation scenario: not because a license named Copilot is missing, but because the Microsoft 365 data plane you want to query does not exist there.
+Confirm that licenses providing the Microsoft 365 workloads relevant to the validation are present in the first list and assigned to the test user in the second. Examples include licenses that provision Exchange Online, Teams, SharePoint, and OneDrive. A tenant whose only SKU is Microsoft Entra (for example, `AAD_PREMIUM_P2`) is unsuitable for this validation scenario: not because a license named Copilot is missing, but because the Microsoft 365 data plane you want to query does not exist there.
 
 ## 2. Identity roles (this is TWO separate systems)
 
@@ -91,7 +91,7 @@ During the validation documented in this repository, this script provisioned the
 
 ## Pre-session checklist summary
 
-- [ ] Tenant has the Microsoft 365 workload SKUs required for the test, with free units
+- [ ] Tenant has the Microsoft 365 workload licenses required for the test
 - [ ] Test user provisioned for those workloads (mailbox, Teams, files)
 - [ ] Microsoft Entra admin role identified, and PIM-activated if applicable
 - [ ] Azure RBAC (Contributor+) confirmed on the billing subscription
