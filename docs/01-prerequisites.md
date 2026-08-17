@@ -79,7 +79,9 @@ Bring answers to these; they are required inputs during setup:
 2. **Which users** participate in the pilot (each must be provisioned for the Microsoft 365 workloads under test and included in the billing/access policy).
 3. Whether **write actions** are needed. This validation is read-focused; enabling write/action capabilities is a separate governance decision.
 
-## 5. Optional but recommended: run the tenant enablement in advance
+## 5. Run the tenant enablement in advance (the enablement itself is MANDATORY)
+
+To be clear about what is optional here: **tenant enablement is a required configuration step, not an optional one.** Without it, Work IQ calls fail with the entitlement error even when licensing and billing are correctly configured (see [Runbook Step 1](02-runbook.md#step-1-tenant-enablement-one-time-global-administrator-powershell) and [Troubleshooting #5](03-troubleshooting.md#5-entitlement-error-persists-with-workload-access-billingenablement-gate)). The only optional part is the **timing**: it can be executed during the working session, but running it in advance is strongly recommended because it is the longest sequential dependency and requires a Global Administrator.
 
 If a Global Administrator can spare 10 minutes before the session, run the current Microsoft-provided tenant enablement procedure (from any machine with PowerShell 7):
 
@@ -101,4 +103,4 @@ During the validation documented in this repository, this script provisioned the
 - [ ] Microsoft 365 admin center billing role confirmed (Global Administrator or Billing Administrator)
 - [ ] Linux box with curl, jq, Azure CLI
 - [ ] Billing subscription + spending limit decided
-- [ ] (Optional) Tenant enablement already executed
+- [ ] Tenant enablement executed (mandatory; ideally completed before the session)
