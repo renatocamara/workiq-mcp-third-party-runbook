@@ -75,7 +75,7 @@ WSL-specific notes (skip on native Linux):
 
 Bring answers to these; they are required inputs during setup:
 
-1. **Which Azure subscription** funds the usage-based billing, and what **monthly spending limit** (in Copilot Credits) to set. Recommendation: start low; you can raise it later.
+1. **Which billing model and which Azure subscription.** Decide between **pay-as-you-go** (requires an Azure subscription and Contributor RBAC; pay only for what you consume) and **prepaid Copilot Credit capacity packs** (USD 200/month per 25,000 credits, tenant-wide, purchased in the admin center; predictable cost, but monthly credits do not roll over). Prepaid is consumed first when both exist. Also decide the **monthly spending limit** (in Copilot Credits) for the policy. Recommendation: start with pay-as-you-go and a low cap while usage is unknown; consider packs once consumption stabilizes.
 2. **Which users** participate in the pilot (each must be provisioned for the Microsoft 365 workloads under test and included in the billing/access policy).
 3. Whether **write actions** are needed. This validation is read-focused; enabling write/action capabilities is a separate governance decision.
 

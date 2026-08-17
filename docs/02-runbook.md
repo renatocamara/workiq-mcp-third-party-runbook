@@ -69,6 +69,8 @@ Complete the device-code sign-in as the test user (provisioned for the Microsoft
 
 Custom and third-party agents that use Work IQ APIs are subject to usage-based billing through Copilot Credits. Microsoft 365 Copilot licensing does not replace this consumption requirement for third-party Work IQ API usage. Until a spending policy is active, data calls fail with an entitlement error.
 
+> **Billing method options.** This runbook validates the **pay-as-you-go** method, which requires an Azure subscription (and Contributor RBAC on it, since setup creates a resource group). It is not the only option: **Copilot Credit capacity packs** are prepaid bundles (USD 200 per tenant per month for 25,000 credits at time of writing) purchased directly in the Microsoft 365 admin center as a tenant-wide resource, with no per-user licenses. When both exist, prepaid credits are consumed first and pay-as-you-go applies only to overage; monthly pack credits do not roll over. For large or multi-workload commitments there is also the annual **Pre-Purchase Plan (P3)**. Capacity packs appear as an additional choice in the spending policy's Billing method step when the tenant owns them. This runbook did not validate the capacity-pack path end to end; evaluate it with the official docs: [Prepaid capacity packs vs pay-as-you-go](https://learn.microsoft.com/en-us/microsoft-365/copilot/pay-as-you-go/copilot-capacity-packs).
+
 1. Open the **Microsoft 365 admin center** (admin.cloud.microsoft) as a **Global Administrator or Billing Administrator** (the roles that can set or change the billing method).
 2. Go to **Copilot > Cost management**. The page states it applies to Copilot Cowork and **Work IQ API**.
 3. Click **Get started**. The default spending policy panel opens:
